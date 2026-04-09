@@ -53,6 +53,7 @@ const proxyServer = http.createServer(proxyApp);
 // http://apple.localhost
 proxyApp.use((req, res) => {
   const hostname = req.hostname;
+// TODO FIX: const subdomain = hostname?.split(".")[0];
   const subdomain = hostname.split(".")[0];
   if (!db.has(subdomain)) return res.status(404).end("Not found");
   const { ipAddress, defaultPort } = db.get(subdomain);
@@ -60,8 +61,28 @@ proxyApp.use((req, res) => {
   const proxyOptions = {
     target: targetUrl,
     changeOrigin: true,
+    ws: true,
   };
   proxy.web(req, res, proxyOptions);
+});
+
+proxyServer.on("upgrade", (req, socket, head) => {
+  // TODO FIX: const hostname = req.headers.host
+  const hostname = req.hostname;
+// TODO FIX: const subdomain = hostname?.split(".")[0];
+  const subdomain = hostname.split(".")[0];
+  if (!db.has(subdomain)){
+    socket.destroy();
+    return;
+  }
+  const { ipAddress, defaultPort } = db.get(subdomain);
+  const targetUrl = `http://${ipAddress}:${defaultPort}`;
+  const proxyOptions = {
+    target: targetUrl,
+    ws: true,
+  };
+  // TODO FIX:  return proxy.ws(req,socker,head,proxyOptions)
+  proxy.ws(req, socket, proxyOptions);
 });
 
 proxyServer.listen(80, () => {
@@ -82,6 +103,7 @@ managementApi.post("/containers", async (req, res) => {
   const fullImage = `${image}:${tag}`;
   const images = await docker.listImages();
 
+// TODO FIX: let imageAlreadyExists = false;
   const imageAlreadyExists = false;
 
   for (const systemImage of images) {
